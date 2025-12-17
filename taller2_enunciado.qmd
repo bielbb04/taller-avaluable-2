@@ -1,0 +1,280 @@
+---
+title: "Taller evaluado II"
+date: "2025-10-17"
+format:
+  html:
+    toc: true
+    toc-depth: 5
+lang: es
+---
+
+**Nombre y apellido de cada miembro del grupo**
+
+-   Estudiante 1 Miguel Martorell
+-   Estudiante 2 Joan Franquesa
+-   Estudiante 3 Biel Barceló
+
+```{r, message=FALSE, echo=FALSE}
+library("tidyverse")
+library("factoextra")
+library("ggplot2")
+library("cluster")
+```
+
+**Una consultora especializada en evaluación y gobernanza de sistemas de Inteligencia Artificial (IA) ha recopilado información de 240 organizaciones pertenecientes a los sectores de Salud y Educación que han incorporado sistemas de IA para apoyar la toma de decisiones y la automatización de procesos.**
+
+**Para cada organización se ha medido:**
+
+-   `ID`: Identificador único de la organización/entidad observada.
+
+-   `Sector`: Sector al que pertenece la organización (Salud o Educación).
+
+-   `Implementacion`: Estado de despliegue de la solución de IA (Piloto o Producción).
+
+-   `Precision`: Precisión del sistema en escala 0–100 (a mayor valor, mejor).
+
+-   `Robustez`: Estabilidad del sistema ante cambios/ruido/datos distintos en escala 0–100 (a mayor valor, más robusto).
+
+-   `Productividad`: Ganancia o nivel de productividad asociado al uso de IA en escala 0–100 (a mayor valor, mejor).
+
+-   `Ahorro_tiempo`: Ahorro de tiempo atribuible a la IA en escala 0–100 (a mayor valor, más ahorro).
+
+-   `Riesgo_etico`: Nivel de riesgo ético percibido en escala 0–100 (a mayor valor, más riesgo).
+
+-   `Riesgo_legal`: Nivel de riesgo legal/regulatorio percibido en escala 0–100 (a mayor valor, más riesgo).
+
+-   `Aceptacion_usuarios`: Grado de aceptación por parte de usuarios finales en escala 0–100 (a mayor valor, más aceptación).
+
+-   `Coste`: Coste relativo del proyecto/solución en escala 0–100 (a mayor valor, mayor coste).
+
+**El objetivo del estudio es comprender patrones de adopción, similitudes entre organizaciones y posibles diferencias sistemáticas entre grupos.**
+
+**Los datos están disponibles en el archivo: "datos_taller_evaluado_2.csv"**
+
+#### 1. Realizad un análisis exploratorio multivariante del conjunto de datos. Para ello presentad e interpretad cada uno de los gráficos solicitados a continuación, relacionándolos con el contexto del problema y destacando los patrones, asociaciones o diferencias relevantes que aporten información útil para comprender el uso de la IA en los distintos sectores (1 punto)
+
+-   **Una matriz de gráficos de dispersión que incluya las correlaciones entre las variables: `Precisión`, `Robustez`, `Productividad`, `Ahorro_tiempo` y `Aceptacion_usuarios`por `Sector`**
+
+-   **Una matriz de gráficos de dispersión que incluya las correlaciones entre las variables: `Riesgo_etico`, `Riesgo_legal` y `Coste` por `Sector`**
+
+```{r, echo = TRUE, message=FALSE}
+library(GGally)
+variables1.1 = datos %>%
+  group_by(Sector) %>%
+  dplyr::select(Precision, Robustez, Productividad, Ahorro_tiempo, Aceptacion_usuarios) 
+
+ggpairs(variables1)
+```
+
+Existe una correlación muy fuerte entre Ahorro_tiempo y Productividad (0.855) y de ambas con la Aceptacion_usuarios (aprox. 0.76 - 0.79). Esto indica que el usuario valora la IA principalmente por la rapidez y eficiencia que aporta a su trabajo diario.
+
+La Precisión y la Robustez están altamente vinculadas entre sí (0.801), formando un núcleo de calidad técnica sólido.
+
+Es crítico observar que la Precisión tiene una correlación baja con la Aceptacion_usuarios (0.181), y la Robustez no tiene una relación significativa (0.098) con ella. Esto sugiere que un sistema puede ser técnicamente perfecto, pero si no ahorra tiempo ni mejora la productividad, los usuarios no lo aceptarán.
+
+Los gráficos de densidad en la diagonal muestran que la mayoría de las variables tienen una distribución con un sesgo hacia valores altos, lo que indica que, en general, los procesos evaluados tienen un desempeño de medio a alto.
+
+```{r, message = FALSE}
+library(GGally)
+variables1.2 = datos %>%
+  group_by(Sector) %>%
+  dplyr::select(Riesgo_etico, Riesgo_legal,Coste)
+
+ggpairs(variables1.2)
+```
+
+Existe una correlación extremadamente alta entre el Riesgo_etico y el Riesgo_legal (0.887). Esto indica que, en los proyectos de IA, las preocupaciones éticas y las normativas legales suelen avanzar de la mano; si un proceso es éticamente complejo, casi siempre conlleva una alta carga regulatoria.
+
+El Coste está fuertemente vinculado a ambos riesgos (0.802 con ética y 0.754 con legal). Esto sugiere que la automatización no es "barata" cuando requiere altos estándares de control y seguridad; a mayor riesgo percibido, mayor es la inversión necesaria en el proceso.
+
+A diferencia de las variables operativas, aquí los gráficos de densidad muestran una distribución más central y uniforme. No hay un sesgo claro hacia valores bajos, lo que significa que los costes y riesgos están presentes de forma significativa en la mayoría de los proyectos analizados.
+
+#### 2. Considerad el vector multivariante $\mathbf{Y}$, definido a continuación, para llevar a cabo el contraste de comparación de medias entre los sectores Educación y Salud, tal y como se especifica más adelante.
+
+$$
+\mathbf{Y}=
+\begin{aligned}[t]
+(&\texttt{Precision},\ \texttt{Robustez},\ \texttt{Productividad},\ \texttt{Ahorro\_tiempo},\ \texttt{Aceptacion\_usuarios},\\
+ &\texttt{Riesgo\_etico},\ \texttt{Riesgo\_legal},\ \texttt{Coste})
+\end{aligned}
+$$
+
+$$
+H_0:\ \boldsymbol{\mu}_{\text{Edu}}=\boldsymbol{\mu}_{\text{Salud}}
+\qquad \text{frente a} \qquad
+H_1:\ \boldsymbol{\mu}_{\text{Edu}}\neq \boldsymbol{\mu}_{\text{Salud}}.
+$$
+
+##### a. ¿Qué supuestos deben cumplirse y mencionad cómo podríais verificarlos para que sea válido aplicar uno de los test estudiados en la asignatura? (1 punto)
+
+Se debe cumplir que ambas distribuciones sean normales multivariantes y que ademas sean independientes entre ellas.
+
+##### b. Escribid un código en R que implemente el contraste de comparación de medias multivariantes apropiado entre los sectores Educación y Salud para las variables consideradas. El código debe calcular y mostrar el vector de medias muestrales de cada sector; ejecutar el contraste. Luego, reportad el p-valor y tomar una decisión para $\alpha=0.05$ en el contexto del problema (2 puntos)
+
+```{r, message=FALSE}
+library(tidyverse)
+library(dplyr)
+educacion = datos %>%
+  filter(Sector == "Educación") %>%
+  select(where(is.numeric))
+
+salud = datos %>%
+  filter(Sector=="Salud") %>%
+  select(where(is.numeric))
+
+media1=colMeans(educacion)
+media2=colMeans(salud)
+
+n1=dim(educacion)[1]
+p=dim(educacion)[2]
+n2=dim(salud)[1]
+
+S1=cov(educacion)
+S2=cov(salud)
+
+Sv=(n1*S1+n2*S2)/(n1+n2-2)
+
+D2=t(media1-media2)%*%solve(Sv)%*%(media1-media2)
+
+T2=((n1*n2)/(n1+n2))*D2
+
+estadistico=((n1+n2-1-p)/((n1+n2-2)*p))*T2
+estadistico
+qf(0.95,p,n1+n2-1-p)
+
+pvalor=1-pf(qf(0.95,p,n1+n2-1-p),p,n1+n2-1-p)
+pvalor
+```
+
+#### 3. Representad de manera reducida los perfiles multivariantes del uso de IA del sector Educación y del sector Salud (por separado). Interpretad las componentes retenidas, explicando su posible significado práctico en el contexto del problema. Justificad bien el procedimiento (3 puntos)
+
+```{r, message=FALSE}
+library("factoextra")
+
+educacion = datos %>%
+  filter(Sector == "Educación") %>%
+  dplyr::select(where(is.numeric))
+
+edu.pca = prcomp(educacion, scale = TRUE)
+
+lambdas = get_eigenvalue(edu.pca)
+lambdas
+
+fviz_eig(edu.pca)
+
+fviz_pca_biplot(edu.pca, repel = TRUE,
+                col.var = "blue",
+                col.ind = "#696969" 
+                )
+
+
+```
+
+Podemos ver que para explicar correctamente las variables, estaria bien coger hasta 3 dimensiones, pues con las dos primeras obtenemos solamente un 80% de la variabilidad que puede no considerarse suficiente. Además, en el primer plot se aprecia que se "gana" aproximadamente lo mismo entre la primera y la segunda como proporcionalmente entre la segunda y la tercera.
+
+En cuanto al diagrama circular que explica la variabilidad en términos de las dos nuevas componentes principales, nos dice que existen dos grupos: Uno que toma el eje positivo de la seguna componente (ahorro_tiempo y productividad tienen una gran correlación, al igual que riesgo_legal y riesgo_ético) y otros que toma el negativo. Otro factor a tener en cuenta, es que todas las variables apuntan hacia la derecha de la principal componente, entonces eso lo podemos interpretar como una especie de "índice general de calidad/rendimiento".
+
+Deducimos que, aunque las dos primeras componentes explican la mayor parte de la variabilidad (81.4%), incluir una tercera permite capturar casi el 90% de la información original.
+
+```{r}
+library("factoextra")
+
+salud = datos %>%
+  filter(Sector == "Salud") %>%
+  dplyr::select(where(is.numeric))
+
+sal.pca = prcomp(salud, scale = TRUE)
+
+lambdas = get_eigenvalue(sal.pca)
+lambdas
+
+fviz_eig(sal.pca)
+
+fviz_pca_biplot(sal.pca, repel = TRUE,
+                col.var = "green", 
+                col.ind = "#696969"  
+                )
+```
+
+Pese a la similitudes con el ACP de educación se exagera aún más la agrupación vertical de las variables, que permite identificar grupos más definidos. Podríamos decir en salud, que si aumenta la productividad, podemos afirmar con cierta seguridad que aumentaran también la aceptación de usuarios, el ahorro del tiempo aunque asumiendo riesgo legal y etico. Sin embargo, la caída del primer valor propio al segundo es más exagerada que en el caso de la educación por tanto, el primero agrupa más variabilidad.
+
+Se aprecia una ligera aglomeración en el (0,0) que se puede deber a la estandarización de procesos que sufre la sanidad y hace que se asemejen diferentes hospitales, ciudades...
+
+#### 4. A continuación os presentamos dos bloques de código. Explicad de forma breve qué procedimiento estadístico se aplica en cada bloque. Después, interpretad los resultados en el contexto del problema: describid qué perfiles de uso de IA emergen en el sector Educación y en qué se diferencian entre sí. Por último, compara ambos bloques y justificad cuál de los dos resultados consideráis más adecuado para describir los perfiles (3 puntos)
+
+##### Bloque A
+
+```{r}
+datos <- read.csv("datos_taller_evaluado_2.csv")
+vars <- c("Precision","Robustez","Productividad",
+          "Ahorro_tiempo","Aceptacion_usuarios",
+          "Riesgo_etico","Riesgo_legal","Coste")
+
+X_Edu <- datos %>%
+  filter(Sector == "Educación") %>%
+  select(all_of(vars)) %>%
+  as.data.frame()
+
+X_Edu_sc   <- scale(X_Edu)
+fviz_nbclust(X_Edu_sc, FUNcluster = cluster::pam, method = "wss") +
+  ggtitle("PAM - WSS (Educación)")
+
+set.seed(123)
+pam_Edu <- cluster::pam(X_Edu_sc, k = 4) 
+pam_Edu
+
+fviz_cluster(pam_Edu, data = X_Edu_sc, 
+             ellipse.type = "t", repel = TRUE) +
+  theme_bw() + theme(legend.position = "none") +
+  ggtitle("Clustering PAM (Educación)")
+
+perfil <- read.csv("perfil_Edu.csv")$x
+table(perfil, pam_Edu$clustering)
+```
+
+En primer lugar, se leen los datos y nos quedamos con aquellas variables que nos interesan, que en nuestro caso son: Precision, Robustez, Productividad, Ahorro_tiempo, Aceptacion_usuarios, Riesgo_etico, Riesgo_legal y Coste.
+
+A continuación, filtramos los datos quedándonos únicamente con las observaciones que pertenecen al sector de la Educación, y posteriormente los escalamos para poder realizar los estudios posteriores, ya que los métodos de clustering están basados en distancias y son sensibles a la escala de las variables.
+
+El primer método que se ejecuta es fviz_nbclust(...), que aplica el criterio Within-Cluster Sum of Squares (WSS) para distintos valores de k, conocido como el método del codo.
+
+Los resultados de este método nos proporcionan, para cada número de k-medoids, la suma de las distancias cuadradas dentro de los grupos. Como cabría esperar, esta distancia decrece a medida que aumenta el número de grupos. Bajo nuestro criterio, consideramos conveniente agrupar los datos en tres grupos, ya que a partir del cuarto centro la disminución del WSS es considerablemente más suave. El segundo método que se ejecuta es pam(...), considerando cuatro grupos. Esta elección viene dada por el planteamiento inicial del estudio, aunque, como hemos comentado, consideramos que podría ser preferible trabajar con tres grupos. El algoritmo PAM asigna cada observación al medoid que consigue minimizar las distancias dentro de los grupos.
+
+Cluster 1 (ID 71): baja precisión y robustez, beneficios en general bajos o medios; aceptación ligeramente superior a la media; riesgos y coste bajos.
+
+Cluster 2 (ID 44): ahorro de tiempo y aceptación altos; precisión moderadamente alta; riesgos y coste moderados o altos.
+
+Cluster 3 (ID 38): precisión, robustez y productividad muy altas, pero también riesgos y coste elevados; aceptación algo baja.
+
+Cluster 4 (ID 109): productividad, ahorro de tiempo y aceptación muy bajos; riesgos y coste bajos.
+
+En la tercera parte, se leen los valores de la variable perfil correspondientes al sector de Educación y se construye una tabla de contingencia entre dicha clasificación y los clusters obtenidos mediante el algoritmo PAM. Esta tabla permite comparar ambas segmentaciones y evaluar el grado de coincidencia entre los perfiles predefinidos y los identificados mediante clustering, lo que facilita el análisis de la coherencia y las diferencias entre ambos enfoques de clasificación. Por último, se realiza un breve comentario del mapa visual de las cuatro clasificaciones. Al proyectar los datos, se observa que las dos primeras dimensiones recogen algo más del 80 % de la variabilidad total, lo que permite extraer conclusiones razonablemente aproximadas. Aun así, se aprecia solapamiento entre algunos grupos y una clasificación compleja en cuatro clusters, por lo que parece más coherente considerar tres grupos, que recogen la gran mayoría de las observaciones.
+
+##### Bloque B
+
+```{r, warning=FALSE}
+matriz_distancias <- dist(X_Edu_sc, method = "euclidean")
+h_cluster_average <- hclust(d = matriz_distancias, method = "average")
+cor(matriz_distancias, cophenetic(h_cluster_average))
+fviz_dend(h_cluster_average, k = 4, cex = 0.4, rect = TRUE,
+          main = "Dendrograma (average) - Educación")
+average_clusters <- cutree(h_cluster_average, k = 4)
+table(perfil, average_clusters)
+```
+
+Estamos usando un clustering jerarquico aglomerativo con enlace medio,.A cada paso cogemos todas las distancias de cualquier punto de un cluster a cualquier punto del otro, las sumamos y las dividimos entre todos los enlaces posibles. Al hacer esta media podemos garantizar que tenga el mayor numero de enlaces "cortos".
+
+Observamos tres clusters de tamaño considerable y uno con tan solo dos observaciones (posiblemente un outlier); esto, en contexto de educacion, se podría interpretar como dos escuelas alternativas que o bien rechazan completamente el uso de lA o que hayan sido casos extraordinarios de automatizacion.
+
+En cuanto a los otros, vemos que el verde es un gran cluster, con la mayor densidad de individuos. Esto sugiere que en educación hay una gran estandarización.
+
+En cuanto, al azul y al morado se unen en un nivel previo al verde, lo cual indica que tienen una raíz común (algunas de las variables se parecen).
+
+**Instrucciones para entregar:** Un miembro del grupo deberá subir a la tarea de Aula Digital, un único archivo PDF que incluya:\
+1) los nombres de todos los integrantes, y\
+2) un enlace al repositorio de GitHub (de cualquiera de los integrantes).
+
+El repositorio deberá contener, como mínimo:\
+- el archivo fuente `.qmd`,\
+- la salida `.html`, y\
+- un `README.md` que describa con claridad el propósito del proyecto y su estructura.
